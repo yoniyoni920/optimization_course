@@ -1,0 +1,102 @@
+// errors3.c
+
+#include <stdio.h>
+#include <math.h>
+
+int main()
+{
+  double x, y, z, u, v, w, diff, diff2, xp, sum, sum2;
+  int i,j;
+
+  printf("\n\nroundoff error:\n\n");
+  x = 100000.0;
+  y = 737191377;
+  z = x / y * y;
+  diff = z - x;
+  printf("%lf / %lf *%lf = %lf\n", x, y, y, z);
+  printf("diff = %lg\n", diff); 
+
+  printf("\n\npropogation error:\n\n");
+  z = x / y;
+  u = (x*x*x)/(y*y*y);
+  v = z*z*z;
+  diff = u - v;
+  printf("u = (x*x*x)/(y*y*y);\n"); 
+  printf("v = (x / y)*(x / y)*(x / y);\n"); 
+  printf("\nu = (%lg * %lg * %lg) / * (%lg * %lg * %lg) = %lg\n\n", 
+    x, x, x,  y, y, y,  u);
+  printf("v = (%lg / %lg) * (%lg / %lg)* (%lg / %lg) = %lg\n", 
+      x, y, x, y, x, y, v);
+  printf("u - v = %lg\n\n", diff); 
+  diff = (u*(y*y*y))/(x*x) - x;
+  diff2 = (v*(y*y*y))/(x*x) - x;  
+  printf("(u*(y*y*y))/(x*x) - x = %lg\n", diff);  
+  printf("(v*(y*y*y))/(x*x) - x = %lg\n", diff2);  
+
+  printf("\n\nprecision error:\n\n");
+  x = 0;
+  y = 2;
+  z = x + y;
+  while(z != x)
+  {
+  if (z*z <= 2)
+     x = z;
+ else
+    y = y / 2;
+  z = x + y;
+  } // while
+
+  diff = 2 - x*x;
+  printf("mysqrt(2) = %12.10lf, sqrt(2) = %12.10lf\n",
+            x, sqrt(2)); 
+  printf("diff = %lg\n", diff); 
+  diff2 = 2 - sqrt(2)*sqrt(2);
+  printf("diff2 = %lg\n", diff2); 
+
+  printf("\n\ntruncation error:\n\n");
+  x = 0.6;
+  xp = x;
+  sum = 1; 
+  for(i=0; i < 5; i++)
+  {
+     sum = sum + xp;
+     xp = xp * x;
+  } // for
+  
+  z = 1/(1-x);
+  printf ("1/(1 - %lf) = %lf\n", x, z);
+  diff = sum - z;
+  printf("sum = %lf, diff = %lg\n", sum, diff);
+
+  xp = x;
+  sum2 = 1; 
+  for(i=0; i < 26; i++)
+  {
+     sum2 = sum2 + xp;
+     xp = xp * x;
+  } // for
+  
+  z = 1/(1-x);
+  printf ("1/(1 - %lf) = %lf\n", x, z);
+  diff2 = sum2 - z;
+  printf("sum2 = %lf, diff2 = %lg\n", sum2, diff2);
+
+  printf("\n\ndiscretization error:\n\n");
+  x = sin(0.4);
+  y = sin(0.41);
+  z = sin(0.406);
+  diff = 0.01;
+  diff2 = 0.006;
+  u = x + (y - x)*diff2/diff;
+   printf("u = %lf, z = %lf, diff = %lg\n", u, z, u - z);
+
+  printf("\n\ncancellation error\n");
+  x = y = 10000000000.0; 
+  z = 0.00000000007;
+
+  printf("%lg - %lg + %lg = %lg\n", x, y, z, x - y + z); 
+  printf("%lg + %lg - %lg = %lg\n", x, z, y, x + z - y); 
+
+
+
+} // main

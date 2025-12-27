@@ -1,0 +1,518 @@
+// find_most_negative.c
+
+#include "simplex.h"
+
+
+void find_all_negative_rds(int neg_ids[], int *no_of_rds)
+{
+// Assumptions: d[i] is original index, rd orderred by i=0,.., n-1 
+//                                                  d[0] ... d[n-1]
+
+  int i, index, most_index;
+  double temp_value;
+
+  index = 0;
+  for(i=0; i < (n - m); i++)
+    if ( rd[i] <  0)
+     {
+       neg_ids[index] = d[m+i];
+       index++;
+       printf("\nXX:i = %d, rd[%d] = %lf, d[%i] =  %d, index = %d\n",
+         i, i, rd[i], i, d[i], index);
+     } // if
+
+  *no_of_rds = index;
+} // find_all_negative_rds
+// find_exiting_id.c
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "simplex.h"
+
+// Assuming y = B-1D, x = B-1b
+int find_exiting_id(double y[][N], double x[], int enter_id, 
+int n, int m, double *max_new_value)
+{
+
+  int i,j,temp_min_index, init_flag, q, unbounded_flag ;
+  double temp_min, temp;
+
+  for(i=0; i < n; i++)
+    if (d[i] == enter_id)
+        q = i;
+
+  init_flag = 0;
+// CHANGE
+  unbounded_flag = 1;
+// END OF CHANGE
+  for(i=0; i < m; i++)
+  {
+   printf("y[%d][%d] = %lf, x[%d] = %lf %lf\n", i,q, y[i][q],i, x[i]);
+   printf("init_flag = %d\n", init_flag);
+   if (y[i][q] > 0.0)
+   {
+ // CHANGE
+   unbounded_flag = 0;
+// END OF CHANGE
+ temp = x[i]/y[i][q];
+    printf("i = %d, temp = %lf\n", i, temp);
+    if (init_flag == 0)
+    {
+     temp_min = temp;
+     temp_min_index = i;
+     init_flag = 1;
+    } // if 
+    else
+      if (temp < temp_min)
+      {
+       temp_min = temp;
+       temp_min_index = i;
+
+      } // if 
+  
+   } // if
+    printf("temp_min_index  = %d, temp_min  = %lf\n", temp_min_index , 
+                                     temp_min );
+  
+  } // for
+  printf("unbounded flag = %d\n", unbounded_flag);
+
+// CHANGE
+  if( unbounded_flag == 1)
+  {
+   fprintf(stderr, "Unbounded linear program!\n");
+   exit(0);
+  } // if
+// END OF CHANGE
+
+  
+*max_new_value = temp_min;
+return temp_min_index;
+
+} // find_exiting_id
+// simplex.h
+
+
+#include <stdio.h>
+
+// Global Variables
+
+
+#define N 128
+#define M 64
+
+
+extern  double  A[N][N];
+extern  double B[N][N];
+extern  double C[N];
+extern  double D[N][N];
+extern  double c[N];
+extern  double b[N];
+extern  double b_aux[N];
+extern  double cb[N];
+extern  double cbBI[N];
+extern  double cbBID[M];
+extern  double cd[N];
+extern  double rd[N];
+extern  double BID[N][N];
+extern  double W[N][N];
+extern  double BI[N][N];
+extern  double BIA_aux[N][N];
+
+// extern  double scales[N];
+
+extern double A_aux[N][N];
+extern double BIb[N];
+
+
+extern double epsilon;
+  
+extern  int d[N];
+extern  int d_aux[N];
+extern  int basis[N];
+extern  int n;
+extern  int m;
+extern  FILE *fp;
+
+
+extern   int Initial_n;
+extern    double Initial_W[N][N];
+extern   double Initial_cb[N];
+extern  double Initial_cd[N];
+extern  double Initial_A[N][N];
+extern  double Initial_A_aux[N][N];
+extern  double Initial_c[N];
+extern   double Initial_c_aux[N];
+extern  int Initial_basis[N];
+extern  double Initial_D[N][N];
+extern  int Initial_d[N];
+extern   double Initial_B[N][N];
+extern  double Initial_BIb[N];
+
+extern   double Initial_C[N][N];
+extern   double Initial_b[N];
+extern   double Initial_b_aux[N];
+extern   double Initial_rd[N];
+extern   double Initial_BID[N][N];
+extern   double Initial_BI[N][N];
+extern   double Initial_cbBI[N];
+extern   double Initial_cbBID[N];
+extern   double Initial_BIA_aux[N][N];
+
+
+
+
+
+// Global functions
+
+extern void copy_matrix(double Dest[][N], double Source[][N], int n, 
+int m);
+
+extern void copy_vector(double Dest[], double Source[], int n);
+
+extern void bublesort(int array[],  int n);
+
+extern void print_result();
+
+
+extern void Initial_simplex_algorithm();
+
+extern void simplex_algorithm();
+
+
+// extern int find_exiting_id(double y[][N], double x[], 
+//    int q, int n, int m);
+
+extern int find_exiting_id(double y[][N], double x[], int enter_id,
+int n, int m, double *max_new_value);
+
+extern int find_most_negative();
+
+extern int find_Initial_most_negative();
+
+extern void inv_gaussian(double B[][N], double A[][N],  
+   int n);
+
+extern  void matrix_mult(double C[][N], double A[][N], double B[][N],  
+int 
+n, 
+int m, int p);
+
+extern void matrix_vector_mult(double c[], 
+double A[][N], double b[], int n, int m); 
+
+extern void vector_matrix_mult(double c[], double b[], double A[][N],   
+  int n, int m);
+
+extern void print_no_solution();
+
+extern void print_original_system();
+
+extern void print_result();
+
+extern void read_file();
+
+extern void swap_colums(double A[][N], int i, int j, int m, int n);
+
+extern void swap_rows(double W[][N], int n, int m1, int m2);
+
+
+extern void vector_subtract(double result_v[], double v1[], double v2[],  
+int n);
+
+
+extern void 
+copy_submatrix(double Dest[][N], double Source[][N],  int istart,
+   int depth, int jstart, int length);
+
+
+extern void copy_initial_matrix();
+
+extern double find_min_value(double rd[], int n);
+
+
+extern void compute_cb_cd();
+
+extern void compute_Initial_cb_Initial_cd();
+ 
+extern void print_initial_solution(); 
+
+extern void print_solution();
+
+extern void Initial_swap_colums(int i, int j);
+
+extern void stage2_swap_colums(int i, int j);
+
+extern void Initial_set_d();
+extern void set_d();
+
+extern void set_Initial_A_aux();
+extern void set_A_aux();
+
+extern void bublesort_d(int array[], double darr[],  int n);
+
+extern void erase_epsilons_matrix(double darray[][N], int m, int n);
+extern void erase_epsilons_vector(double darray[], int n);
+
+extern int find_Initial_exiting_id(double y[][N], double x[], int 
+enter_id, int n, int m);
+
+extern void copy_to_initial_matrix();
+
+extern void find_all_negative_rds(int neg_ids[], int *n);
+
+// simplex_algorithm.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include "simplex.h"
+
+void simplex_algorithm()
+{
+   int i, j,k, optimal_flag, enter_id,  exiting_id, itemp, basis_i;
+   double dtemp, min_value;
+   int count=0;
+
+  optimal_flag = 0;
+
+  printf(" m = %d, n = %d\n", m, n);
+
+  printf("\nbasis:\n");
+  for(i=0; i < m; i++)
+    printf(" %d ", basis[i]);
+  printf("\n");
+
+
+  printf("A:\n");
+  for(i=0; i < m; i++)
+   {
+     for(j=0; j < n; j++)
+       printf(" %6.2lf ", A[i][j]);
+     printf("\n");
+   } // for
+
+
+  
+ while(optimal_flag == 0)
+ {
+
+
+  bublesort(basis, m);
+
+  printf("\nbasis:\n");
+  for(i=0; i < m; i++)
+    printf(" %d ", basis[i]);
+  printf("\n");
+
+ 
+  set_d();
+
+
+   printf("\nd:\n");
+   for(i=0; i < n; i++)
+     printf(" %d ", d[i]);
+   printf("\n");
+
+
+   set_A_aux();
+
+  printf("\nA_aux (B, D):\n");
+  for(i=0; i < m; i++)
+   {
+     for(j=0; j < n; j++)
+       printf(" %6.2lf ", A_aux[i][j]);
+     printf("\n");
+   } // for
+
+
+   copy_submatrix(B, A_aux, 0, m, 0, m); // Set B
+
+  printf("\nB:\n");
+  for(i=0; i < m; i++)
+   {
+     for(j=0; j < m; j++)
+        printf(" %6.2lf ", B[i][j]);
+     printf("\n");
+   } // for  
+
+
+   inv_gaussian(BI, B,  m); // BI = B-1  
+
+   erase_epsilons_matrix(BI, m, m);
+
+   printf("\nBI:\n");
+   for(i=0; i < m; i++)
+    {
+      for(j=0; j < m; j++)
+         printf(" %6.2lf ", BI[i][j]);
+      printf("\n");
+    } // for  
+
+
+   matrix_mult(BIA_aux, BI, A_aux,
+            m, m, n);
+   erase_epsilons_matrix(BIA_aux, m, n);
+   
+  printf("\nBIA_aux (I, B-1*D):\n");
+  for(i=0; i < m; i++)
+   {
+     for(j=0; j < n; j++)
+        printf(" %6.2lf ", BIA_aux[i][j]);
+     printf("\n");
+   } // for  
+
+  printf("\nA_aux (B,D):\n");
+  for(i=0; i < m; i++)
+   {
+     for(j=0; j < n; j++)
+        printf(" %6.2lf ", A_aux[i][j]);
+     printf("\n");
+   } // for  
+
+
+   printf("b:\n");
+   for(i=0; i < m; i++)
+     printf(" %6.2lf ", b[i]);
+
+
+
+   matrix_vector_mult(BIb, BI, b, m, m);
+   erase_epsilons_vector(BIb, m);
+
+   printf("\nBIb:\n");
+   for(i=0; i < m; i++)
+     printf(" %6.2lf ", BIb[i]);
+   printf("\n");
+
+
+   copy_submatrix(D, A_aux,  
+         0, m, m, n-m); // Set D
+
+  printf("D:\n");
+  for(i=0; i < m; i++)
+   {
+     for(j=0; j < n-m; j++)
+        printf(" %6.2lf ", D[i][j]);
+     printf("\n");
+   } // for  
+
+// END OF FOR DEBUG ONLY
+
+   compute_cb_cd();
+
+   printf("\ncb:\n");
+   for(i=0; i < m; i++)
+     printf(" %6.2lf ", cb[i]);
+   printf("\n");
+
+   printf("\ncd:\n");
+   for(i=0; i < (n-m); i++)
+     printf(" %6.2lf ", cd[i]);
+   printf("\n");
+
+
+// cbBI = cb * B-1
+
+   vector_matrix_mult(cbBI, cb, BI, m, m); 
+   erase_epsilons_vector(cbBI, m);
+
+   printf("\ncbBI:\n");
+   for(i=0; i < m; i++)
+     printf(" %6.2lf ", cbBI[i]);
+   printf("\n");
+
+
+    vector_matrix_mult(cbBID, cbBI, D, 
+    m, n - m); 
+   erase_epsilons_vector(cbBID, n - m);
+
+
+  printf("\ncbBID:\n");
+  for(i=0; i < (n - m); i++)
+        printf(" %6.2lf ", cbBID[i]);
+   printf("\n");
+
+
+
+    vector_subtract(rd, cd,  cbBID, 
+     n-m);
+    erase_epsilons_vector(rd, n - m);
+
+   printf("\nrd( cd - cbBID ):\n");
+   printf("\nXXd:");
+   for(i=0; i < (n-m); i++)
+     printf(" %6d ", d[i+m]);
+   printf("\nXXrd:");
+   for(i=0; i < (n-m); i++)
+     printf(" %6.2lf ", rd[i]);
+   printf("\n\n");
+
+
+    min_value = find_min_value(rd, n-m);
+    if (min_value >= 0.0) 
+       optimal_flag = 1;
+    else
+    {
+      int negative_rds[N];
+      int index, n_n_rds, best_improvement_id, best_exiting_id, q, k;
+      double best_improvement, temp_improvement;
+      
+//        enter_id = find_most_negative();
+//        exiting_id = 
+//      find_exiting_id(BIA_aux,BIb,
+//           enter_id, n, m);
+//     printf("\nenter_id  = %d,  exiting_id = %d," 
+//              " d[exiting_id] = %d\n", 
+//                                  enter_id, exiting_id, 
+//                                  d[exiting_id]);
+
+   
+  find_all_negative_rds(negative_rds, &n_n_rds);
+
+  best_improvement = 0.0;  
+  best_improvement_id = -1;
+  for(index=0; index < n_n_rds; index++)
+  {
+    enter_id = negative_rds[index];
+    for(k=0; k < (n-m); k++)
+      if (d[m+k] == enter_id)
+           q = k;
+   printf("\nXXenter_id = %d, q = %d, rd[q] = %lf\n", 
+    enter_id, q, rd[q]);
+     exiting_id =
+      find_exiting_id(BIA_aux,BIb,
+           enter_id, n, m, &temp_improvement);
+    printf("\n1:temp_improvement = %lf,  best_improvement = %lf\n", 
+       temp_improvement, best_improvement);
+    temp_improvement = -rd[q]*temp_improvement;
+    printf("\n2:temp_improvement = %lf,  best_improvement = %lf\n", 
+       temp_improvement, best_improvement);
+    if (temp_improvement >= best_improvement) // = account for zero
+      {
+         best_improvement = temp_improvement;
+         best_improvement_id = enter_id;
+         best_exiting_id = exiting_id;
+      } // if
+
+  } // for
+
+  enter_id = best_improvement_id;
+  exiting_id =   best_exiting_id;;
+
+  printf("pivot: enter_id = %d, exiting_id = %d\n", enter_id, 
+d[exiting_id]);
+
+    basis[exiting_id] =   enter_id;
+   printf("\nbasis:\n");
+   for(i=0; i < m; i++)
+     printf(" %d ", basis[i]);
+   printf("\n");
+
+    } // else 
+
+ } // while
+
+} //simplex_algorithm
+         

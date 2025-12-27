@@ -1,0 +1,761 @@
+// steepest.c
+
+#include <stdio.h>
+#include <math.h>
+
+#define NMAX 100
+
+
+typedef double (*FUN_PTR)(double[]); // pointer to function 
+
+typedef void (*GRAD_FUN_PTR)(double grad[], double x[] ); // pointer 
+//to function 
+
+typedef int VECTOR_CONVERGENCE_TEST(double arr[], int n, double epsilon);
+
+
+FUN_PTR objective_function;
+
+double grad_vector[NMAX];
+double xnm1[NMAX];
+double gtemp[NMAX];
+
+int vector_n;
+
+double falpha(double alpha)
+{
+  int i;
+
+ printf("vector_n = %d, alpha = %lf\n", vector_n, alpha);
+
+  for(i=0; i < vector_n; i++)
+    gtemp[i] = xnm1[i] - alpha*grad_vector[i]; 
+
+  for(i=0; i < vector_n; i++)
+      printf(
+    "gtemp[%d] = %lf,  xnm1[%d] = %lf, grad_vector[%d] = %lf\n",
+      i,  gtemp[i], i, xnm1[i], i, grad_vector[i]);
+
+  return  objective_function(gtemp);
+
+} // falpha
+
+
+
+double golden(double (*fp)(double), double x1, double x3, double eps)
+{
+ double x2, fx2,  fx3, x4, fx4;
+ double phi = 1.618;
+ double phi1 = 2.618;
+
+ x2 = x1 + (x3-x1)/phi1;
+ fx2 = (*fp)(x2);
+ x4 = x1 + (x3-x1)/phi;
+ fx4 = (*fp)(x4);
+
+do {
+
+ if (fx2 > fx4)
+ {
+   x1 = x2;
+   x2 = x4;
+   fx2 = fx4;
+   x4 = x1 + (x3-x1)/phi;
+   fx4 = (*fp)(x4);
+ }
+ else 
+  {
+   x3 = x4;
+   x4 = x2;
+   fx4 = fx2;
+   x2 = x1 + (x3-x1)/phi1;
+   fx2 = (*fp)(x2);
+  } /* else */  
+} while ( (x3 - x1) > eps);
+
+ return ( (x1+x3)/2);
+} /* golden */
+
+
+
+
+int vector_convergence_test(double arr[], int n, double epsilon)
+{
+  int i;
+
+  for(i=0; i < n; i++)
+    printf("arr[%d] = %lf\n", i, arr[i]);
+
+  for(i=0; i < n; i++)
+   if (fabs(arr[i]) > epsilon)
+     return 0.0;
+  return 1;
+
+} // vector_convergence_test
+
+void copy_vector(double dest[], double source[], int n)
+{
+  int i;
+  
+  for(i=0; i < n; i++)
+   dest[i] = source [i];  
+
+} // copy_vector
+
+
+void find_initial_alphas(double (*falpha)(double), double *alpha_1, double *alpha_2)
+{
+  int going_down_flag;
+  double falpha1, falpha2, alpha1, alpha2, prev_alpha;
+
+  falpha1 = (*falpha)(0.0);
+  prev_alpha = alpha1 = 0.0;
+
+  alpha2 = 0.0009765625; // 1/1024
+
+  going_down_flag =  1;
+
+  while(going_down_flag == 1)
+  {
+    prev_alpha = alpha1;
+    falpha1 = (*falpha)(alpha1);
+    falpha2 = (*falpha)(alpha2);
+    alpha1 = alpha2; 
+    if(falpha2 >= falpha1)
+       going_down_flag = 0;
+    else
+       alpha2 = 2.0*alpha2; 
+   
+  } // while
+
+  *alpha_1 = prev_alpha;
+  *alpha_2 = alpha2;
+} // find_initial_alphas
+
+
+
+void steepest(double xn[], double x0[], int n, 
+FUN_PTR f, GRAD_FUN_PTR grad, double epsilon,
+VECTOR_CONVERGENCE_TEST v)
+{
+    
+  double temp, alpha_1, alpha_2, alpha_k;
+  int i;
+  
+  vector_n = n;
+  copy_vector(xn, x0, n);
+  grad(grad_vector, x0);
+  objective_function = f;
+  copy_vector(xnm1, xn, n);
+  grad(grad_vector, xnm1);
+
+  while(v(grad_vector, n, 0.001) == 0)
+  {
+      
+    find_initial_alphas(falpha, &alpha_1, &alpha_2);
+  
+    alpha_k = golden(falpha, alpha_1, alpha_2, epsilon);   
+    
+    printf("alpha_k = %lf\n", alpha_k);
+    
+    for(i=0; i < n; i++)
+      xn[i] = xnm1[i] - alpha_k * grad_vector[i];
+
+    printf("xn:\n");
+    for(i=0; i < n; i++)
+      printf(" xn[%d] = %lf\n",  i, xn[i]);
+    copy_vector(xnm1, xn, n);
+    grad(grad_vector, xn);
+
+  } // while 
+
+ 
+}  // steepest
+
+
+double f(double x[])
+{
+  return (-sin(x[0]+2*x[1]) - cos(3*x[0]+4*x[1])); 
+
+} // f
+
+void g(double grad[], double x[])
+{
+ 
+   grad[0] = -cos(x[0] + 2*x[1]) + 3*sin(3*x[0] + 4*x[1]); 
+   grad[1] = -2*cos(x[0] + 2*x[1]) + 4*sin(3*x[0] + 4*x[1]); 
+
+  printf(" grad[0] = %lf,  grad[1] = %lf\n", grad[0], grad[1]);
+
+} // f
+
+
+int main()
+{
+  double xstar[2], x0[2], value;
+
+  x0[0] = 0.0;
+  x0[1] = 0.0;
+
+  steepest(xstar, x0, 2, 
+   f, g, 0.0001, vector_convergence_test);
+
+  printf("\noptimal solution:\n xstar[0] = %lf\n,  xstar[1] = %lf\n",
+                xstar[0], xstar[1]);
+
+  printf("\nIn Degrees:\n xstar[0] = %lf\n,  xstar[1] = %lf\n",
+                xstar[0]*180.0/M_PI, xstar[1]*180.0/M_PI);
+
+
+  printf("\noptimal value  = %lf\n", f(xstar));
+
+
+} // main
+// steepest_golden7.c
+
+#include <stdio.h>
+#include <math.h>
+
+#define NMAX 100
+
+
+typedef double (*FUN_PTR)(double[]); // pointer to function 
+
+typedef void (*GRAD_FUN_PTR)(double grad[], double x[] ); // pointer 
+//to function 
+
+typedef int VECTOR_CONVERGENCE_TEST(double arr[], int n, double epsilon);
+
+
+FUN_PTR objective_function;
+
+double grad_vector[NMAX];
+double xnm1[NMAX];
+double gtemp[NMAX];
+double diff[NMAX];
+
+
+int vector_n;
+
+void subtract_vector(double dest[], double source[], int n)
+{
+  int i;
+
+  for(i=0; i < n; i++)
+    dest[i] = dest[i] - source[i];
+
+} // subtract_vector
+
+double falpha(double alpha)
+{
+  int i;
+
+ printf("vector_n = %d, alpha = %lf\n", vector_n, alpha);
+
+  for(i=0; i < vector_n; i++)
+    gtemp[i] = xnm1[i] - alpha*grad_vector[i]; 
+
+  for(i=0; i < vector_n; i++)
+      printf(
+    "gtemp[%d] = %lf,  xnm1[%d] = %lf, grad_vector[%d] = %lf\n",
+      i, i, i,
+           gtemp[i],  xnm1[i], grad_vector[i]);
+
+  return  objective_function(gtemp);
+
+} // falpha
+
+
+
+double golden(double (*fp)(double), double x1, double x3, double eps)
+{
+ double x2, fx2,  fx3, x4, fx4;
+ double phi = 1.618;
+ double phi1 = 2.618;
+
+ x2 = x1 + (x3-x1)/phi1;
+ fx2 = (*fp)(x2);
+ x4 = x1 + (x3-x1)/phi;
+ fx4 = (*fp)(x4);
+
+do {
+
+ if (fx2 > fx4)
+ {
+   x1 = x2;
+   x2 = x4;
+   fx2 = fx4;
+   x4 = x1 + (x3-x1)/phi;
+   fx4 = (*fp)(x4);
+ }
+ else 
+  {
+   x3 = x4;
+   x4 = x2;
+   fx4 = fx2;
+   x2 = x1 + (x3-x1)/phi1;
+   fx2 = (*fp)(x2);
+  } /* else */  
+} while ( (x3 - x1) > eps);
+
+ return ( (x1+x3)/2);
+} /* golden */
+
+
+
+
+int vector_convergence_test(double arr[], int n, double epsilon)
+{
+  int i;
+
+  for(i=0; i < n; i++)
+    printf("arr[%d] = %lf\n", i, arr[i]);
+
+  for(i=0; i < n; i++)
+   if (fabs(arr[i]) > epsilon)
+     return 0;
+  return 1;
+
+} // vector_convergence_test
+
+void copy_vector(double dest[], double source[], int n)
+{
+  int i;
+  
+  for(i=0; i < n; i++)
+   dest[i] = source [i];  
+
+} // copy_vector
+
+void find_initial_alphas(double (*falpha)(double), double *alpha_1, double *alpha_2)
+{
+  int going_down_flag;
+  double falpha1, falpha2, alpha1, alpha2, prev_alpha;
+
+  falpha1 = (*falpha)(0.0);
+  prev_alpha = alpha1 = 0.0;
+
+  alpha2 = 0.0009765625; // 1/1024
+
+  going_down_flag =  1;
+
+  while(going_down_flag == 1)
+  {
+    prev_alpha = alpha1;
+    falpha1 = (*falpha)(alpha1);
+    falpha2 = (*falpha)(alpha2);
+    alpha1 = alpha2; 
+    if(falpha2 >= falpha1)
+       going_down_flag = 0;
+    else
+       alpha2 = 2.0*alpha2; 
+   
+  } // while
+
+  *alpha_1 = prev_alpha;
+  *alpha_2 = alpha2;
+} // find_initial_alphas
+
+
+void steepest(double xn[], double x0[], int n, 
+FUN_PTR f, GRAD_FUN_PTR grad, double epsilon,
+VECTOR_CONVERGENCE_TEST v)
+{
+    
+  double temp, alpha_1, alpha_2, alpha_k;
+  int i;
+  
+  vector_n = n;
+  copy_vector(xn, x0, n);
+  grad(grad_vector, x0);
+  objective_function = f;
+  copy_vector(xnm1, xn, n);
+  grad(grad_vector, xnm1);
+  copy_vector(diff, xn, n);
+
+  while((v(diff, n, 0.001) == 0) || (v(grad_vector, n, 0.001) == 0) )
+  {
+      
+    find_initial_alphas(falpha, &alpha_1, &alpha_2);
+  
+    alpha_k = golden(falpha, alpha_1, alpha_2, epsilon);   
+    
+    printf("alpha_k = %lf\n", alpha_k);
+    
+    for(i=0; i < n; i++)
+      diff[i] =  alpha_k * grad_vector[i];
+    for(i=0; i < n; i++)
+      xn[i] = xnm1[i] - diff[i];
+
+    printf("xn:\n");
+    for(i=0; i < n; i++)
+      printf(" xn[%d] = %lf\n",  i, xn[i]);
+
+    copy_vector(xnm1, xn, n);
+    grad(grad_vector, xn);
+
+  } // while 
+
+ 
+}  // steepest
+
+
+double f(double x[])
+{
+  double t1, t2;
+
+  t1 = x[0] - 3;
+  t2 = x[1] - 4;
+  return (t1*t1*t1*t1 +t2*t2*t2*t2); 
+
+} // f
+
+double approx_partial_derivative(double (*obj_f)(double x[]),
+     int i, double x[])
+{
+   double temp1,temp2, xi_orig, result, h;
+   double eps_const = 1048576.0;
+
+   xi_orig = x[i];
+   h = x[i]/eps_const;
+
+   x[i] =  xi_orig + h;
+
+  temp1 = (*obj_f)(x); 
+
+   x[i] =  xi_orig - h;
+
+  temp2 = (*obj_f)(x); 
+ 
+  result =  (temp1 - temp2)/(2*h);
+
+   x[i] =  xi_orig;
+
+  return result;
+
+} // approx_partial_derivative
+
+
+void approx_g(double grad[], double x[])
+{
+  int i, j;
+
+  for(i=0;i < vector_n; i++)
+     grad[i] = approx_partial_derivative(f,i, x); 
+
+} // approx_g
+
+int main()
+{
+  double xstar[2], x0[2], value;
+
+  x0[0] = 14.0;
+  x0[1] = 7.0;
+
+  steepest(xstar, x0, 2, 
+   f, approx_g, 0.00001, vector_convergence_test);
+
+  printf("\n\noptimal solution:\n xstar[0] = %lf\n,  xstar[1] = %lf\n",
+                xstar[0], xstar[1]);
+
+  printf("\n\nIn degrees: xstar[0] = %lf\n,  xstar[1] = %lf\n",
+                xstar[0]*180.0/M_PI, xstar[1]*180.0/M_PI);
+
+  printf("\n\noptimal value  = %lf\n", f(xstar));
+
+
+} // main
+// multi_approx.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <errno.h>
+
+#define NMAX 100
+
+  double W[NMAX][NMAX];
+  double M[NMAX][NMAX];
+  double F[NMAX][NMAX];
+  double Fm1[NMAX][NMAX];
+
+typedef double (*FUN_PTR)(double[]); // pointer to function
+typedef void (*GRAD_FUN_PTR)(double grad[], double x[] ); // pointer
+typedef void (*HESSIAN_FUN_PTR)(double F[NMAX][NMAX], double x[] ); //
+typedef int VECTOR_CONVERGENCE_TEST(double arr[], int n, double epsilon);
+
+int n;
+
+void read_file(char str[])
+{
+  int i, j, k;
+  FILE *fp;
+
+  fp = fopen(str,"rt");
+  if (fp == NULL)
+  {
+   perror("fopen");
+    exit(0);
+  } // if
+   fgets(str, 80, fp);   // "n:"
+  fscanf(fp,"%d", &n);
+
+  fgets(str, 80, fp);   // 
+   fgets(str, 80, fp);   // "F:"
+
+  for(i=0; i < n; i++)
+  {
+    for(j=0; j < n; j++)
+     fscanf(fp, "%lf", &F[i][j]);
+  } // for
+
+
+  fgets(str, 80, fp);   // 
+
+
+} /* read_file */
+
+
+void swap_rows(int n, int m1, int m2)
+{
+  int i; 
+  double temp;
+ 
+  for(i=0; i <= n; i++)
+  {
+    temp = W[m1][i];
+    W[m1][i] = W[m2][i];
+    W[m2][i] = temp;
+  } /* for */
+  
+} /* swap_rows */
+
+
+double compute_F_determinant(int n)
+{
+ 
+  int i, j, k, p, itemp, sign;
+  double MaxValue, RelativeValue, result;
+
+
+  sign = 1;
+
+  printf("F:\n");
+  for(i=0; i < n; i++)
+  {
+    for(j=0; j < n; j++)
+       printf(" %lf ", F[i][j]);
+    printf("\n");
+  } // for
+
+  
+  for(i=0; i < n; i++)
+    for(j=0; j < n; j++)
+      W[i][j] = F[i][j];
+
+
+   printf("Initial W: \n");
+   for(i=0; i < n; i++)
+   {
+     for(j=0; j < n; j++)
+         printf(" %lf " ,W[i][j]);
+    printf("\n");
+   } // for
+
+
+  for (k=0; k < n; k++)
+  {
+   printf("k = %d\n", k);
+    p = k;
+    MaxValue = fabs(W[k][k]);
+    for(i=k+1; i < n; i++)
+     if (fabs(W[i][k]) >  MaxValue)
+     {
+         p = i;
+         MaxValue = fabs(W[i][k]);
+     }// if
+     if (p != k)
+     {
+       swap_rows( n, k, p);
+       sign = 0 - sign;
+     } // if
+     RelativeValue = W[k][k];
+    printf("RelativeValue = %lf\n", RelativeValue);
+//     W[k][k] = 1.0;
+
+
+//     for(j=k+1; j < n; j++)
+//        W[k][j] = W[k][j]/RelativeValue;
+
+     for(i=k+1; i < n; i++)
+     {
+      if (i != k)
+      {
+         RelativeValue = W[i][k]/W[k][k];;
+         W[i][k] = 0.0;
+         for(j=k+1; j <= n; j++)
+            W[i][j] = W[i][j] - RelativeValue*W[k][j];
+       } // if
+     } // for
+
+
+   printf(" W: \n");
+   for(i=0; i < n; i++)
+   {
+     for(j=0; j < n; j++)
+         printf(" %lf " ,W[i][j]);
+    printf("\n");
+   } // for
+
+
+  } /* for */
+
+ result = W[0][0];
+ for(i=1; i < n; i++)
+  result *= W[i][i];
+
+ result = sign * result;
+
+ return result;
+
+
+} /*  gaussian */
+
+
+void compute_minus_F(int n)
+{
+  int i, j;
+
+  for(i=0; i < n; i++)
+    for(j=0; j < n; j++)
+    {
+     F[i][j] = -F[i][j]; 
+    } // for
+
+} // compute_minus_F(int n)
+
+int test_non_zero_matrix(int n, double epsilon)
+{
+ int i, j, flag;
+
+ flag = 0;
+
+  for(i=0; (i < n) && (flag == 0); i++)
+    for(j=0; (j < n)&& (flag == 0); j++)
+     if (fabs(F[i][j]) > epsilon)
+       flag = 1;
+
+ return flag;
+
+} // test_non_zero_matrix
+
+int positive_definite_test(int n, double epsilon)
+{
+ // result  1 : positive definite
+ // result  2 : positive semi definite
+ // result  3 : not positive definite 
+
+ int i, flag,np1;
+ double Det_i;
+
+ np1 = n + 1;
+ flag = 0;  // Initial
+ for(i=1; (i < np1)&& (flag != 3) ; i++)
+ {
+  Det_i = compute_F_determinant(i);
+
+  printf("Det_i(%d) = %lf\n",i, Det_i);
+
+  if (Det_i < -epsilon)
+   {
+      flag = 3;  // not positive or semi-positive
+   } // if
+  else
+  if (Det_i > epsilon)
+   {
+    if (flag == 0)
+     flag = 1;  // possibly positive definite
+   } // if
+  else // Det_i considered == 0
+  {
+    if (flag == 1) // up to now 
+             //positive definite
+      flag = 2; // from now on
+                // possibly semi positive definite
+  } // else
+ } // for
+
+  return flag;
+
+} // positive_definite_test
+
+int definite_test(int n, double epsilon)
+{
+ // result 0 : zero matrix
+ // result -1 : negative definite
+ // result -2 : negative semi definite
+ // result  1 : positive definite
+ // result  2 : positive semi definite
+ // result  3 : not definite either way
+
+int flag1, flag2;
+
+  flag1 = test_non_zero_matrix(n, epsilon);
+
+  if (flag1  == 0)
+    return 0;
+
+  flag1 = positive_definite_test(n, epsilon);
+
+  if ((flag1 == 1)|| (flag1 == 2))
+    return flag1;
+
+  compute_minus_F(n);
+
+  flag2 = positive_definite_test(n, epsilon);
+
+  compute_minus_F(n);
+
+  if ((flag2 == 1)|| (flag2 == 2))
+    return -flag2;
+  else
+   return 3; 
+
+
+} // positive_definite_test
+
+    
+int main(int argc, char *argv[])
+{
+  int flag;
+  double epsilon = 0.00001;
+
+  if (argc < 2)
+  {
+    fprintf(stderr, "Usage exefile text_filename\n");
+    exit(0);
+  } // if
+
+  read_file(argv[1]);
+
+  flag = definite_test(n, epsilon);
+
+  if(flag == 1)
+   printf("F is POSITIVE definite\n");
+  else
+  if(flag == 2)
+   printf("F is POSITIVE SEMI-definite\n");
+  else
+  if(flag == 3)
+   printf("F is NON-definite\n");
+  else
+  if(flag == -1)
+   printf("F is NEGATIVE-definite\n");
+  else
+  if(flag == -2)
+   printf("F is NEGATIVE SEMI-definite\n");
+  else
+  if(flag == 0)
+   printf("F is the zero matrix, both POSITIVE AND NEGATIVE SEMI-definite\n");
+
+} // main
