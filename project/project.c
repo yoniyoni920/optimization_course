@@ -7,29 +7,29 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// --- Typedefs ---
+// --- הגדרות טיפוסים ---
 typedef double (*FUN_PTR)(double[]); 
 typedef void (*GRAD_FUN_PTR)(double grad[], double x[]); 
 typedef int VECTOR_CONVERGENCE_TEST(double arr[], int n, double epsilon);
 
-// --- Globals used by steepest/golden ---
+// --- משתנים גלובליים לשימוש ב-steepest/golden ---
 FUN_PTR objective_function;
 double grad_vector[NMAX];
 double xnm1[NMAX];
 double gtemp[NMAX];
 int vector_n;
 
-// --- Globals for the Example Problem (Quadratic) ---
+// --- משתנים גלובליים לדוגמה הספציפית (מטריצה Q ווקטור b) ---
 double Q[3][3];
 double b[3];
 double ftemp_arr[3];
 
-// --- Forward Declarations ---
+// --- הצהרות מוקדמות ---
 double falpha(double alpha);
 double golden(double (*fp)(double), double a, double b, double eps);
 void steepest(double xn[], double x0[], int n, FUN_PTR f, GRAD_FUN_PTR grad, double epsilon, VECTOR_CONVERGENCE_TEST v);
 
-// --- Helper Functions ---
+// --- פונקציות עזר כלליות ---
 
 void copy_vector(double dest[], double source[], int n) {
     int i;
@@ -39,17 +39,19 @@ void copy_vector(double dest[], double source[], int n) {
 int vector_convergence_test(double arr[], int n, double epsilon) {
     int i;
     for(i=0; i < n; i++)
-        if (fabs(arr[i]) > epsilon) return 0;
-    return 1;
+        if (fabs(arr[i]) > epsilon) return 0; // עדיין לא התכנסנו
+    return 1; // התכנסנו
 }
 
-// Numerical Gradient Calculation (approx_g)
+// --- חישוב נגזרת נומרית (Approx Gradient) ---
+
 double approx_partial_derivative(double (*obj_f)(double x[]), int i, double x[]) {
     double temp1, temp2, xi_orig, result, h;
     double eps_const = 1048576.0; // 2^20
 
     xi_orig = x[i];
-    h = (x[i] == 0) ? 0.000001 : x[i] / eps_const;
+    // הגנה מפני חלוקה ב-0 וקביעת גודל צעד יחסי
+    h = (fabs(x[i]) < 0.000001) ? 0.000001 : x[i] / eps_const;
 
     x[i] = xi_orig + h;
     temp1 = (*obj_f)(x);
@@ -58,27 +60,27 @@ double approx_partial_derivative(double (*obj_f)(double x[]), int i, double x[])
     temp2 = (*obj_f)(x);
 
     result = (temp1 - temp2) / (2 * h);
-    x[i] = xi_orig;
+    x[i] = xi_orig; // החזרת הערך המקורי
 
     return result;
 }
 
 void approx_g(double grad[], double x[]) {
     int i;
-    // Assuming vector_n is set globally or passed. Using global vector_n safely if set, else assume from context (risky but standard for this course structure)
-    // Better to use the 'n' known from context. In the schema, we set vector_n.
+    // משתמשים ב-vector_n הגלובלי שמוגדר בפונקציה הראשית
     for (i = 0; i < vector_n; i++) {
         grad[i] = approx_partial_derivative(objective_function, i, x);
     }
 }
 
-// Matrix/Vector helpers for the example function
+// --- פונקציות עזר למטריצות (עבור הדוגמה) ---
+
 void vector_matrix_mult(double res[], double x[], double Mat[3][3], int n) {
     int i, j;
     for(i=0; i<n; i++) {
         res[i] = 0;
         for(j=0; j<n; j++) {
-            res[i] += x[j] * Mat[j][i]; // Note: usually x*Q means row vector x times matrix
+            res[i] += x[j] * Mat[j][i];
         }
     }
 }
@@ -90,12 +92,13 @@ double mult_vector_vector(double v1[], double v2[], int n) {
     return sum;
 }
 
-// --- The Core Optimization Schema (The Assignment) ---
+// --- הסכמה הראשית (הפרויקט המסכם) ---
 
 /*
- * This function implements the requested schema:
- * 1. Finds initial x0 using coordinate descent-like search.
- * 2. Refines the solution by repeatedly calling steepest descent with decreasing epsilon.
+ * פונקציה: mutli_variable_optimization_schema
+ * מבצעת שני שלבים:
+ * 1. מציאת x0 התחלתי ע"י סריקה (Coordinate Descent).
+ * 2. הרצת steepest descent בלולאה תוך הקטנת epsilon עד להתייצבות.
  */
 void mutli_variable_optimization_schema(
     double xn[], int n, 
@@ -105,54 +108,54 @@ void mutli_variable_optimization_schema(
 {
     int i, j, k, pass;
     double h;
-    double current_x[NMAX]; // To verify valley condition
-    double f_curr, f_next, f_prev;
-    double val_curr;
+    double current_x[NMAX]; // וקטור זמני לבדיקת הערכים
+    double f_prev, f_curr, f_next;
     
-    // Set globals needed for helpers
+    // הגדרת משתנים גלובליים נדרשים
     vector_n = n;
     objective_function = f;
 
-    // --- Part 1: Finding Initial x0 ---
+    // === שלב 1: מציאת נקודת התחלה x0 ===
     
     h = (highb - lowb) / (double)initial_m;
     double mid = (lowb + highb) / 2.0;
 
-    // Initialize xm with midpoints
+    // אתחול וקטור התוצאה לנקודת האמצע
     for(i = 0; i < n; i++) {
         xn[i] = mid;
     }
 
-    // Run 2 passes
+    printf("Starting Initial Search (Range: %.2f - %.2f, Parts: %d)...\n", lowb, highb, initial_m);
+
+    // ביצוע שני מעברים (Passes)
     for(pass = 0; pass < 2; pass++) {
-        // Iterate over each dimension
+        // מעבר על כל מימד (משתנה) בנפרד
         for(k = 0; k < n; k++) {
             
-            // Search along dimension k
-            // We look for a triplet (j, j+1, j+2)
-            // We need to construct vectors to evaluate f
-            
-            // Copy current best state to a temp vector for manipulation
+            // העתקת המצב הנוכחי לוקטור זמני
             copy_vector(current_x, xn, n);
 
+            // סריקת הטווח במימד k
+            // מחפשים שלישייה: f(j) > f(j+1) < f(j+2)
             for(j = 0; j < initial_m - 1; j++) {
-                // Point 1: L + j*h
+                
+                // נקודה 1
                 current_x[k] = lowb + j * h;
                 f_prev = f(current_x);
 
-                // Point 2: L + (j+1)*h
+                // נקודה 2 (האמצעית)
                 current_x[k] = lowb + (j + 1) * h;
                 f_curr = f(current_x);
 
-                // Point 3: L + (j+2)*h
+                // נקודה 3
                 current_x[k] = lowb + (j + 2) * h;
                 f_next = f(current_x);
 
-                // Check Valley Condition: f(prev) > f(curr) < f(next)
+                // בדיקת תנאי "עמק"
                 if (f_prev > f_curr && f_curr < f_next) {
-                    // Found a valley! Update xn[k] to the middle point
+                    // מצאנו עמק! מעדכנים את הקואורדינטה k בוקטור הראשי
                     xn[k] = lowb + (j + 1) * h;
-                    // Move to next dimension
+                    // עוברים למשתנה הבא (Break פנימי)
                     break; 
                 }
             }
@@ -163,14 +166,14 @@ void mutli_variable_optimization_schema(
     for(i=0; i<n; i++) printf("%lf ", xn[i]);
     printf("\n\n");
 
-    // --- Part 2: Steepest Descent with Refinement ---
+    // === שלב 2: Steepest Descent עם עידון (Refinement) ===
 
-    double x_prev_result[NMAX];
+    double x_prev_result[NMAX]; // לשמירת התוצאה הקודמת להשוואה
     double sum_diff, sum_prev;
     double ratio = 0.0;
     double current_epsilon = epsilon;
     
-    // Use the found xn as the starting point x0 for steepest
+    // xn כרגע מכיל את ההערכה הראשונית. נשתמש בו כ-x0 ל-steepest.
     double x0_for_steepest[NMAX];
     copy_vector(x0_for_steepest, xn, n);
 
@@ -178,21 +181,21 @@ void mutli_variable_optimization_schema(
 
     do {
         iter_count++;
-        // Keep result of previous run (if not first run)
+        // שמירת התוצאה הקודמת לפני ההרצה (החל מהאיטרציה השנייה)
         if (iter_count > 1) {
             copy_vector(x_prev_result, xn, n);
         }
 
         printf("--- Refinement Iteration %d (Epsilon: %lg) ---\n", iter_count, current_epsilon);
         
-        // Run steepest descent
-        // Note: xn is output, x0_for_steepest is input
+        // הרצת האלגוריתם
+        // שים לב: x0_for_steepest הוא הקלט, xn הוא הפלט
         steepest(xn, x0_for_steepest, n, f, grad, current_epsilon, v);
 
-        // Update x0 for next iteration to be the result of this one
+        // עדכון x0 לאיטרציה הבאה להיות התוצאה של האיטרציה הנוכחית
         copy_vector(x0_for_steepest, xn, n);
 
-        // Calculate ratio for stopping condition
+        // חישוב יחס היציבות (Stability Ratio)
         if (iter_count > 1) {
             sum_diff = 0.0;
             sum_prev = 0.0;
@@ -201,27 +204,22 @@ void mutli_variable_optimization_schema(
                 sum_prev += fabs(x_prev_result[i]);
             }
             
-            // Avoid division by zero
-            if (sum_prev == 0.0) sum_prev = 0.0000001; 
+            if (sum_prev == 0.0) sum_prev = 0.0000001; // מניעת חלוקה באפס
             
-            // The logic: We want stability. 
-            // If the change (sum_diff) is very small relative to the values (sum_prev), 
-            // it means the ratio (1 - change_ratio) is close to 1.
-            // Let's implement exactly what the prompt implies: similarity ratio.
-            // Ratio = 1 - (diff / prev). If diff is small, Ratio -> 1.
-            
-            ratio = 1.0 - (sum_diff / (sum_prev + 0.000001)); // Add small epsilon to prevent overflow
+            // יחס הקרבה: 1 פחות (השינוי היחסי). ככל שהשינוי קטן, היחס מתקרב ל-1.
+            ratio = 1.0 - (sum_diff / sum_prev);
             printf("Stability Ratio: %lf\n", ratio);
         }
 
-        // Halve epsilon for next run
+        // הקטנת אפסילון פי 2
         current_epsilon /= 2.0;
 
-    } while (iter_count < 2 || ratio <= 0.995); // Ensure at least 2 runs to calc ratio
+    // תנאי העצירה: רצים לפחות פעמיים, ועוצרים כשהיחס גדול מ-0.995
+    } while (iter_count < 2 || ratio <= 0.995);
 
 }
 
-// --- Steepest Descent Implementation (from previous lectures) ---
+// --- מימוש פונקציות steepest ו-golden (מהתרגילים הקודמים) ---
 
 void find_initial_alphas(double (*falpha)(double), double *alpha_1, double *alpha_2) {
     int going_down_flag;
@@ -243,3 +241,125 @@ void find_initial_alphas(double (*falpha)(double), double *alpha_1, double *alph
             alpha1 = alpha2; 
             alpha2 = 2.0 * alpha2; 
         }
+    } 
+    *alpha_1 = prev_alpha;
+    *alpha_2 = alpha2;
+}
+
+double falpha(double alpha) {
+    int i;
+    for(i=0; i < vector_n; i++)
+        gtemp[i] = xnm1[i] - alpha * grad_vector[i]; 
+    return objective_function(gtemp);
+}
+
+double golden(double (*fp)(double), double x1, double x3, double eps) {
+    double x2, fx2, fx3, x4, fx4;
+    double phi = 1.618033988;
+    double phi1 = 2.618033988;
+
+    x2 = x1 + (x3 - x1) / phi1;
+    fx2 = (*fp)(x2);
+    x4 = x1 + (x3 - x1) / phi;
+    fx4 = (*fp)(x4);
+
+    while ((x3 - x1) > eps) {
+        if (fx2 > fx4) {
+            x1 = x2;
+            x2 = x4;
+            fx2 = fx4;
+            x4 = x1 + (x3 - x1) / phi;
+            fx4 = (*fp)(x4);
+        } else {
+            x3 = x4;
+            x4 = x2;
+            fx4 = fx2;
+            x2 = x1 + (x3 - x1) / phi1;
+            fx2 = (*fp)(x2);
+        }
+    }
+    return ((x1 + x3) / 2);
+}
+
+void steepest(double xn[], double x0[], int n, 
+              FUN_PTR f, GRAD_FUN_PTR grad, double epsilon,
+              VECTOR_CONVERGENCE_TEST v) 
+{
+    double alpha_1, alpha_2, alpha_k;
+    int i;
+
+    vector_n = n;
+    copy_vector(xn, x0, n);
+    grad(grad_vector, x0);
+    objective_function = f;
+    copy_vector(xnm1, xn, n);
+    grad(grad_vector, xnm1);
+
+    int max_iter = 1000; // הגנה מפני לולאה אינסופית
+    int iter = 0;
+
+    while(v(grad_vector, n, 0.001) == 0 && iter < max_iter) {
+        find_initial_alphas(falpha, &alpha_1, &alpha_2);
+        alpha_k = golden(falpha, alpha_1, alpha_2, epsilon);   
+        
+        for(i=0; i < n; i++)
+            xn[i] = xnm1[i] - alpha_k * grad_vector[i];
+
+        copy_vector(xnm1, xn, n);
+        grad(grad_vector, xn);
+        iter++;
+    }
+}
+
+// --- Main: הרצת הדוגמה עם המטריצה Q ---
+
+// פונקציית המטרה לדוגמה 1: 0.5 * x'Qx + b'x
+double f_example1(double x[]) {
+    double sum;
+    vector_matrix_mult(ftemp_arr, x, Q, 3);
+    sum = 0.5 * mult_vector_vector(ftemp_arr, x, 3);
+    sum = sum + mult_vector_vector(b, x, 3);
+    return sum;
+}
+
+int main() {
+    double xstar[10]; // וקטור התוצאה
+    
+    // הגדרת המטריצה Q (סימטרית, מוגדרת חיובית)
+    double qarr[9] = {2, -1, 0, -1, 2, -1, 0, -1, 2};
+    int i, j;
+
+    for(i=0; i < 3; i++)
+        for(j=0; j < 3; j++)
+            Q[i][j] = qarr[i*3 + j];
+
+    printf("Q Matrix: \n");
+    for(i=0; i < 3; i++) {
+        for(j=0; j < 3; j++)  
+            printf(" %6.2lf ", Q[i][j]);
+        printf("\n");
+    }
+
+    // הגדרת הוקטור b
+    b[0] = -1;
+    b[1] = -2;
+    b[2] = -3;
+    
+    // קריאה לפונקציה הראשית של הפרויקט
+    // תחום חיפוש 0.0 עד 10.0, חלוקה ל-100 חלקים
+    mutli_variable_optimization_schema(xstar, 3, 
+       f_example1, approx_g,
+       0.00001, vector_convergence_test,
+       0.0, 10.0, 100);
+
+    // הדפסת התוצאות הסופיות
+    printf("\n\noptimal solution:\n xstar[0] = %lf\n,  xstar[1] = %lf,  xstar[2] = %lf\n",
+           xstar[0], xstar[1], xstar[2] );
+
+    printf("\n\nIn degrees (Approx): xstar[0] = %lf\n,  xstar[1] = %lf\n",
+           xstar[0]*180.0/M_PI, xstar[1]*180.0/M_PI);
+
+    printf("\n\noptimal value  = %lf\n", f_example1(xstar));
+
+    return 0;
+}
