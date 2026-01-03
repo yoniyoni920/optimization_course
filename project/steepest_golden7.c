@@ -1,141 +1,119 @@
-// steepest_golden7.c - הגרסה המתקדמת עם נגזרת נומרית ותנאי עצירה משופר
+// steepest_golden7.c
 
 #include <stdio.h>
 #include <math.h>
 
 #define NMAX 100
 
-// --- הגדרות טיפוסים לפונקציות ---
-typedef double (*FUN_PTR)(double[]); // מצביע לפונקציית המטרה
-typedef void (*GRAD_FUN_PTR)(double grad[], double x[] ); // מצביע לפונקציית הגרדיאנט
-typedef int VECTOR_CONVERGENCE_TEST(double arr[], int n, double epsilon); // מצביע לפונקציית בדיקת התכנסות
 
-// --- משתנים גלובליים ---
-FUN_PTR objective_function; // הפונקציה אותה אנו מנסים למזער
-double grad_vector[NMAX];   // וקטור הגרדיאנט (השיפוע)
-double xnm1[NMAX];          // המיקום הנוכחי (לפני הצעד)
-double gtemp[NMAX];         // וקטור עזר לחישובים זמניים
-double diff[NMAX];          // וקטור השינוי (ההפרש בין המיקום החדש לישן)
-int vector_n;               // מספר המשתנים (ממד הבעיה)
+typedef double (*FUN_PTR)(double[]); // pointer to function 
 
-// פונקציית עזר לחיסור וקטורים: dest = dest - source
+typedef void (*GRAD_FUN_PTR)(double grad[], double x[] ); // pointer 
+//to function 
+
+typedef int VECTOR_CONVERGENCE_TEST(double arr[], int n, double epsilon);
+
+
+FUN_PTR objective_function;
+
+double grad_vector[NMAX];
+double xnm1[NMAX];
+double gtemp[NMAX];
+double diff[NMAX];
+
+
+int vector_n;
+
 void subtract_vector(double dest[], double source[], int n)
 {
   int i;
+
   for(i=0; i < n; i++)
     dest[i] = dest[i] - source[i];
-} 
 
-/*
- * פונקציה: falpha
- * ----------------
- * מטרה: הופכת את הבעיה הרב-ממדית לחד-ממדית עבור "חיפוש קווי".
- * היא בודקת: מה יהיה ערך הפונקציה אם נזוז מרחק alpha בכיוון המינוס-גרדיאנט?
- */
+} // subtract_vector
+
 double falpha(double alpha)
 {
   int i;
-  
-  // הדפסת מידע לדיבוג
-  printf("vector_n = %d, alpha = %lf\n", vector_n, alpha);
 
-  // חישוב המיקום החדש הזמני: x_new = x_old - alpha * gradient
+ printf("vector_n = %d, alpha = %lf\n", vector_n, alpha);
+
   for(i=0; i < vector_n; i++)
     gtemp[i] = xnm1[i] - alpha*grad_vector[i]; 
 
-  // הדפסת המיקום החדש והגרדיאנט
   for(i=0; i < vector_n; i++)
       printf(
     "gtemp[%d] = %lf,  xnm1[%d] = %lf, grad_vector[%d] = %lf\n",
       i, i, i,
            gtemp[i],  xnm1[i], grad_vector[i]);
 
-  // החזרת ערך הפונקציה בנקודה החדשה
   return  objective_function(gtemp);
-} 
+
+} // falpha
 
 
-/*
- * פונקציה: golden
- * ----------------
- * מטרה: מציאת המינימום של פונקציה במשתנה אחד (alpha) בשיטת יחס הזהב.
- * קלט: פונקציה לבדיקה (fp), ותחום חיפוש [x1, x3].
- * פלט: ה-alpha האופטימלי (גודל הצעד הכי טוב).
- */
+
 double golden(double (*fp)(double), double x1, double x3, double eps)
 {
  double x2, fx2,  fx3, x4, fx4;
- double phi = 1.618;    // יחס הזהב
- double phi1 = 2.618;   // קבוע עזר
+ double phi = 1.618;
+ double phi1 = 2.618;
 
- // צעד ראשון: בחירת שתי נקודות פנימיות x2, x4 לפי יחס הזהב
  x2 = x1 + (x3-x1)/phi1;
  fx2 = (*fp)(x2);
  x4 = x1 + (x3-x1)/phi;
  fx4 = (*fp)(x4);
 
- // לולאה: הקטנת הטווח עד שההפרש קטן מ-eps
- do {
-   if (fx2 > fx4)
-   {
-     // המינימום בחלק הימני -> זורקים את החלק השמאלי (x1 זז ל-x2)
-     x1 = x2;
-     x2 = x4;
-     fx2 = fx4;
-     x4 = x1 + (x3-x1)/phi; // חישוב נקודה חדשה
-     fx4 = (*fp)(x4);
-   }
-   else 
-   {
-     // המינימום בחלק השמאלי -> זורקים את החלק הימני (x3 זז ל-x4)
-     x3 = x4;
-     x4 = x2;
-     fx4 = fx2;
-     x2 = x1 + (x3-x1)/phi1; // חישוב נקודה חדשה
-     fx2 = (*fp)(x2);
-   } 
- } while ( (x3 - x1) > eps);
+do {
 
- // החזרת אמצע הטווח שנשאר
+ if (fx2 > fx4)
+ {
+   x1 = x2;
+   x2 = x4;
+   fx2 = fx4;
+   x4 = x1 + (x3-x1)/phi;
+   fx4 = (*fp)(x4);
+ }
+ else 
+  {
+   x3 = x4;
+   x4 = x2;
+   fx4 = fx2;
+   x2 = x1 + (x3-x1)/phi1;
+   fx2 = (*fp)(x2);
+  } /* else */  
+} while ( (x3 - x1) > eps);
+
  return ( (x1+x3)/2);
-}
+} /* golden */
 
 
-/*
- * פונקציה: vector_convergence_test
- * --------------------------------
- * מטרה: בדיקה האם וקטור מסוים "התאפס" (כל איבריו קרובים לאפס).
- * משמשת לבדיקת שני דברים:
- * 1. האם הגרדיאנט התאפס? (תנאי לקיצון)
- * 2. האם הצעד שעשינו (diff) התאפס? (תנאי להתכנסות)
- */
+
+
 int vector_convergence_test(double arr[], int n, double epsilon)
 {
   int i;
+
   for(i=0; i < n; i++)
-    printf("arr[%d] = %lf\n", i, arr[i]); // הדפסה לדיבוג
+    printf("arr[%d] = %lf\n", i, arr[i]);
 
   for(i=0; i < n; i++)
    if (fabs(arr[i]) > epsilon)
-     return 0; // לא התכנס (נמצא ערך גדול מאפסילון)
-  return 1;    // התכנס (כל הערכים קטנים מאפסילון)
-}
+     return 0;
+  return 1;
 
-// פונקציית עזר להעתקת וקטור
+} // vector_convergence_test
+
 void copy_vector(double dest[], double source[], int n)
 {
   int i;
+  
   for(i=0; i < n; i++)
    dest[i] = source [i];  
-}
 
-/*
- * פונקציה: find_initial_alphas
- * -----------------------------
- * מטרה: מציאת טווח (Bracketing) לחיפוש ה-alpha.
- * מתחילה בצעד קטן ומכפילה אותו עד שהפונקציה מתחילה לעלות.
- * זה מבטיח שהמינימום נמצא איפשהו בין 0 לבין alpha2.
- */
+} // copy_vector
+
 void find_initial_alphas(double (*falpha)(double), double *alpha_1, double *alpha_2)
 {
   int going_down_flag;
@@ -143,8 +121,134 @@ void find_initial_alphas(double (*falpha)(double), double *alpha_1, double *alph
 
   falpha1 = (*falpha)(0.0);
   prev_alpha = alpha1 = 0.0;
-  alpha2 = 0.0009765625; // התחלה מצעד קטן מאוד
+
+  alpha2 = 0.0009765625; // 1/1024
 
   going_down_flag =  1;
 
   while(going_down_flag == 1)
+  {
+    prev_alpha = alpha1;
+    falpha1 = (*falpha)(alpha1);
+    falpha2 = (*falpha)(alpha2);
+    alpha1 = alpha2; 
+    if(falpha2 >= falpha1)
+       going_down_flag = 0;
+    else
+       alpha2 = 2.0*alpha2; 
+   
+  } // while
+
+  *alpha_1 = prev_alpha;
+  *alpha_2 = alpha2;
+} // find_initial_alphas
+
+
+void steepest(double xn[], double x0[], int n, 
+FUN_PTR f, GRAD_FUN_PTR grad, double epsilon,
+VECTOR_CONVERGENCE_TEST v)
+{
+    
+  double temp, alpha_1, alpha_2, alpha_k;
+  int i;
+  
+  vector_n = n;
+  copy_vector(xn, x0, n);
+  grad(grad_vector, x0);
+  objective_function = f;
+  copy_vector(xnm1, xn, n);
+  grad(grad_vector, xnm1);
+  copy_vector(diff, xn, n);
+
+  while((v(diff, n, 0.001) == 0) || (v(grad_vector, n, 0.001) == 0) )
+  {
+      
+    find_initial_alphas(falpha, &alpha_1, &alpha_2);
+  
+    alpha_k = golden(falpha, alpha_1, alpha_2, epsilon);   
+    
+    printf("alpha_k = %lf\n", alpha_k);
+    
+    for(i=0; i < n; i++)
+      diff[i] =  alpha_k * grad_vector[i];
+    for(i=0; i < n; i++)
+      xn[i] = xnm1[i] - diff[i];
+
+    printf("xn:\n");
+    for(i=0; i < n; i++)
+      printf(" xn[%d] = %lf\n",  i, xn[i]);
+
+    copy_vector(xnm1, xn, n);
+    grad(grad_vector, xn);
+
+  } // while 
+
+ 
+}  // steepest
+
+
+double f(double x[])
+{
+  double t1, t2;
+
+  t1 = x[0] - 3;
+  t2 = x[1] - 4;
+  return (t1*t1*t1*t1 +t2*t2*t2*t2); 
+
+} // f
+
+double approx_partial_derivative(double (*obj_f)(double x[]),
+     int i, double x[])
+{
+   double temp1,temp2, xi_orig, result, h;
+   double eps_const = 1048576.0;
+
+   xi_orig = x[i];
+   h = x[i]/eps_const;
+
+   x[i] =  xi_orig + h;
+
+  temp1 = (*obj_f)(x); 
+
+   x[i] =  xi_orig - h;
+
+  temp2 = (*obj_f)(x); 
+ 
+  result =  (temp1 - temp2)/(2*h);
+
+   x[i] =  xi_orig;
+
+  return result;
+
+} // approx_partial_derivative
+
+
+void approx_g(double grad[], double x[])
+{
+  int i, j;
+
+  for(i=0;i < vector_n; i++)
+     grad[i] = approx_partial_derivative(f,i, x); 
+
+} // approx_g
+
+int main()
+{
+  double xstar[2], x0[2], value;
+
+  x0[0] = 14.0;
+  x0[1] = 7.0;
+
+  steepest(xstar, x0, 2, 
+   f, approx_g, 0.00001, vector_convergence_test);
+
+  printf("\n\noptimal solution:\n xstar[0] = %lf\n,  xstar[1] = %lf\n",
+                xstar[0], xstar[1]);
+
+  printf("\n\nIn degrees: xstar[0] = %lf\n,  xstar[1] = %lf\n",
+                xstar[0]*180.0/M_PI, xstar[1]*180.0/M_PI);
+
+  printf("\n\noptimal value  = %lf\n", f(xstar));
+
+
+} // main
